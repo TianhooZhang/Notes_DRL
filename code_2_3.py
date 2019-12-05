@@ -95,7 +95,7 @@ if __name__ == '__main__':
     num = num/maxEpoch
     trackingReward = trackingReward/maxEpoch
     plt.figure()
-    plt.plot(range(1,1001),trackingReward.tolist())
+    plt.plot(trackingReward)
     plt.draw()
     plt.pause(20)
     plt.close()
