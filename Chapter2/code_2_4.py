@@ -64,7 +64,7 @@ class recordR:
         self.trackingReward = np.zeros(maxStep) #训练步数的平均收益
     
     def updateRecord(self,t,aFlag,reward):
-        self.num[t:] += aFlag
+        self.num[t] += aFlag
         self.trackingReward[t] += r
     
     def getRecord(self):

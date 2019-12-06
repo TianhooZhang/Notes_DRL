@@ -1,6 +1,8 @@
 '''
-说明：本代码应用于强化学习（第2版）的2.3节
+说明：本代码应用于强化学习（第2版）的2.5节
     10 臂老虎机
+    对2.3代码进行了修改，删除了qModel中计算qSum的矩阵，并改为了增量更新公式。
+    对2.4代码进行了修改，可以自由改步长
 作者：张天昊
 版本：0.0
 时间：12/05/19
@@ -18,12 +20,17 @@ class laoHuJi:
         self.num = k
 
     def reset(self):
-        self.q = np.random.normal(0,1,self.num)
+        self.q = np.zeros(self.num)
         return np.argmax(self.q)
 
     def get_reward(self,a):
         r = np.random.normal(self.q[a],1)
         return r
+
+    def updateValue(self):
+        self.q += np.random.normal(0,0.01,self.num)
+        return np.argmax(self.q)
+
 
 class qModel:
     '''
@@ -36,7 +43,6 @@ class qModel:
         self.kArm = kArm
         self.epsilon = epsilon
         self.qGuJi = np.zeros(kArm)
-        self.qSum = np.zeros(kArm)
         self.aNum = np.zeros(kArm)
 
     def getAction(self):
@@ -46,15 +52,16 @@ class qModel:
             a = np.random.randint(0,self.kArm)
         return a
 
-    def updateQ(self,a,r):
-        self.qSum[a] += r
+    def updateQ(self,a,r,learningRate):
         self.aNum[a] += 1
-        self.qGuJi[a] = self.qSum[a]/self.aNum[a]
+        if learningRate == 2:
+            learningRate = 1/self.aNum[a]
+        self.qGuJi[a] = self.qGuJi[a] + learningRate * (r - self.qGuJi[a])
     
     def reset(self):
         self.qGuJi = np.zeros(kArm)
-        self.qSum = np.zeros(kArm)
         self.aNum = np.zeros(kArm)
+
 
 class recordR:
     '''
@@ -76,8 +83,9 @@ if __name__ == '__main__':
 
     kArm = 10  # 老虎机臂数
     epsilon = 0.1 # 贪心随机数
-    maxStep = 1000  # 每个老虎机最大训练次数
-    maxEpoch = 2000 # 最多训练2000个老虎机
+    maxStep = 10000  # 每个老虎机最大训练次数
+    maxEpoch = 200 # 最多训练2000个老虎机
+    learningRate= 2
 
     kLaoHuJi = laoHuJi(kArm)
     model = qModel(kArm,epsilon)
@@ -86,16 +94,17 @@ if __name__ == '__main__':
         aFlag = kLaoHuJi.reset()
         model.reset()
         for j in range(maxStep):
+            aFlag = kLaoHuJi.updateValue()
             a = model.getAction()
             r = kLaoHuJi.get_reward(a)
-            model.updateQ(a,r)
+            model.updateQ(a,r,learningRate)
             record.updateRecord(j,a==aFlag,r)
 
     num,trackingReward = record.getRecord()
     num = num/maxEpoch
     trackingReward = trackingReward/maxEpoch
     plt.figure()
-    plt.plot(trackingReward)
+    plt.plot(num)
     plt.draw()
-    plt.pause(20)
+    plt.pause(100)
     plt.close()

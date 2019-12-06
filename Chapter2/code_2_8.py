@@ -1,14 +1,22 @@
 '''
-说明：本代码应用于强化学习（第2版）的2.3节
+说明：本代码应用于强化学习（第2版）的2.5节
     10 臂老虎机
+    对2.3代码进行了修改，删除了qModel中计算qSum的矩阵，并改为了增量更新公式。
+    对2.4代码进行了修改，可以自由改步长
+    加入了UCB更新
 作者：张天昊
 版本：0.0
-时间：12/05/19
+时间：12/06/19
 '''
 
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+
+def softmax(x):
+    exp_x = np.exp(x)
+    softmax_x = exp_x / np.sum(exp_x)
+    return softmax_x
 
 class laoHuJi:
     '''
@@ -18,12 +26,17 @@ class laoHuJi:
         self.num = k
 
     def reset(self):
-        self.q = np.random.normal(0,1,self.num)
+        self.q = np.random.normal(4,1,self.num)
         return np.argmax(self.q)
-
+        
     def get_reward(self,a):
         r = np.random.normal(self.q[a],1)
         return r
+
+    def updateValue(self):
+        self.q += np.random.normal(0,0.01,self.num)
+        return np.argmax(self.q)
+
 
 class qModel:
     '''
@@ -32,29 +45,26 @@ class qModel:
     Q估计为R的均值
     R服从期望价值方差1的高斯分布
     '''
-    def __init__(self,kArm,epsilon):
+    def __init__(self,kArm,learningRate,rArrage):
         self.kArm = kArm
-        self.epsilon = epsilon
-        self.qGuJi = np.zeros(kArm)
-        self.qSum = np.zeros(kArm)
-        self.aNum = np.zeros(kArm)
+        self.H = np.zeros(kArm)
+        self.rArrage = rArrage
+        self.learningRate = learningRate
 
     def getAction(self):
-        if np.random.uniform(0,1)>self.epsilon:
-            a = np.argmax(self.qGuJi)
-        else:
-            a = np.random.randint(0,self.kArm)
-        return a
+        probs = softmax(self.H)
+        a = np.random.choice(np.arange(probs.shape[0]), p=probs.ravel()),probs.ravel()
+        return a[0]
 
-    def updateQ(self,a,r):
-        self.qSum[a] += r
-        self.aNum[a] += 1
-        self.qGuJi[a] = self.qSum[a]/self.aNum[a]
+    def updateH(self,a,r):
+        for i in range(self.kArm):
+            if i == a:
+                self.H[i] = self.H[i] + self.learningRate * (r  - self.rArrage) * (1 - softmax(self.H)[i])
+            else:
+                self.H[i] = self.H[i] - self.learningRate * (r  - self.rArrage) * softmax(self.H)[i]
     
     def reset(self):
-        self.qGuJi = np.zeros(kArm)
-        self.qSum = np.zeros(kArm)
-        self.aNum = np.zeros(kArm)
+        self.H = np.zeros(kArm)
 
 class recordR:
     '''
@@ -75,12 +85,13 @@ class recordR:
 if __name__ == '__main__':
 
     kArm = 10  # 老虎机臂数
-    epsilon = 0.1 # 贪心随机数
     maxStep = 1000  # 每个老虎机最大训练次数
-    maxEpoch = 2000 # 最多训练2000个老虎机
+    maxEpoch = 1000 # 最多训练2000个老虎机
+    learningRate= 0.1
+    rArrage = 4
 
     kLaoHuJi = laoHuJi(kArm)
-    model = qModel(kArm,epsilon)
+    model = qModel(kArm,learningRate,rArrage)
     record = recordR(maxStep)
     for i in tqdm(range(maxEpoch)):
         aFlag = kLaoHuJi.reset()
@@ -88,14 +99,14 @@ if __name__ == '__main__':
         for j in range(maxStep):
             a = model.getAction()
             r = kLaoHuJi.get_reward(a)
-            model.updateQ(a,r)
+            model.updateH(a,r)
             record.updateRecord(j,a==aFlag,r)
 
     num,trackingReward = record.getRecord()
     num = num/maxEpoch
     trackingReward = trackingReward/maxEpoch
     plt.figure()
-    plt.plot(trackingReward)
+    plt.plot(num)
     plt.draw()
-    plt.pause(20)
+    plt.pause(1000)
     plt.close()
